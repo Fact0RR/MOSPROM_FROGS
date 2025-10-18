@@ -51,7 +51,7 @@ func (hh *History) Handler(c *fiber.Ctx) error {
 
 	authHeader := c.Get("Authorization")
 	const prefix = "Token "
-	if !strings.HasPrefix(authHeader, prefix) {
+	if strings.HasPrefix(authHeader, prefix) {
 		var messageToModel messageOutToModel
 		for _, message := range messages {
 			messageToModel.Messages = append(messageToModel.Messages, 
