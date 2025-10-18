@@ -1,0 +1,1 @@
+UPDATE questions SET visible = false WHERE chat_id = $1;

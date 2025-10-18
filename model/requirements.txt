@@ -1,0 +1,13 @@
+Flask==2.3.3
+requests==2.32.3
+# faiss-cpu
+# numpy
+# scikit-learn
+# scipy
+# sentence-transformers
+# tenacity
+# tiktoken
+# torch
+# tqdm
+# transformers
+# umap-learn

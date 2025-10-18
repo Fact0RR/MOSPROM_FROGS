@@ -1,0 +1,22 @@
+[project]
+name = "model"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.2",
+    "pydantic>=2.12.2",
+    "requests>=2.32.3",
+    "faiss-cpu",
+    "numpy",
+    "scikit-learn",
+    "scipy",
+    "sentence-transformers",
+    "tenacity",
+    "tiktoken",
+    "torch",
+    "tqdm",
+    "transformers",
+    "umap-learn",
+]

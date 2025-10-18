@@ -1,0 +1,263 @@
+@import "./variables.css";
+
+/* Общие переменные */
+:root {
+  --composer-height: 58px;
+  --composer-radius: 9999px;
+  --composer-shadow: 0 8px 24px rgba(0,0,0,.06);
+  --accent-red: #e53935;
+  --accent-red-hover: #c62828;
+}
+
+body {
+  background-color: var(--color-bg);
+  font-family: var(--font-family);
+  margin: 0;
+  padding: 0;
+  display: block; /* убрали центрирование */
+}
+
+.chat-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-white);
+  box-shadow: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+header {
+  background: var(--color-white);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-secondary);
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background-color: var(--color-bg);
+}
+
+.chat-empty {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 24px;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 40%;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  line-height: 1.4;
+  word-wrap: break-word;
+  position: relative;
+}
+
+.msg.user {
+  background: var(--color-primary);
+  color: white;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.msg.bot {
+  background: var(--color-white);
+  color: var(--color-text);
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--color-secondary);
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.meta .role {
+  font-weight: 500;
+}
+
+.meta-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.meta-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.meta-actions button:hover {
+  background: var(--color-secondary);
+}
+
+/* —— Нижний composer (инпут + отправка) —— */
+.chat-input {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding: 14px 20px;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-secondary);
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.chat-input input {
+  width: 100%;
+  height: var(--composer-height);
+  border-radius: var(--composer-radius);
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  padding-left: 56px;  /* место под скрепку */
+  padding-right: 60px; /* место под кнопку */
+  font-size: 15px;
+  box-shadow: var(--composer-shadow);
+}
+
+.chat-input input::placeholder {
+  color: #7b8190;
+}
+
+/* Скрепка слева */
+.chat-input::before {
+  content: "📎";
+  position: absolute;
+  left: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  opacity: .65;
+  pointer-events: none;
+}
+
+/* Кнопка отправки внутри поля */
+.chat-input > button {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  box-shadow: 0 10px 20px rgba(229, 57, 53, .35);
+  cursor: pointer;
+  text-indent: -9999px;
+}
+
+.chat-input > button::before {
+  content: "↑";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 18px;
+  text-indent: 0;
+}
+
+.chat-input > button:hover {
+  background: var(--accent-red-hover);
+}
+
+.chat-input > button:disabled {
+  background: var(--color-secondary);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Адаптив */
+@media (max-width: 560px) {
+  .chat-input input {
+    padding-right: 52px;
+  }
+}
+
+
+
+
+/* внутри .chat-input */
+.chat-input {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    padding: 14px 20px;
+    background: var(--color-white);
+    border-top: 1px solid var(--color-secondary);
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+  
+  /* Дадим инпуту место под две кнопки справа: mic + send */
+  .chat-input input {
+    width: 100%;
+    height: var(--composer-height);
+    border-radius: var(--composer-radius);
+    background: #fff;
+    border: 1px solid #e6e8ec;
+    padding-left: 56px;     /* под скрепку */
+    padding-right: 116px;   /* 36px mic + 12px gap + 46px send + зазор */
+    font-size: 15px;
+    box-shadow: var(--composer-shadow);
+  }
+  
+  /* Слот справа внутри инпута (под микрофон) */
+  .chat-input__addon-right {
+    position: absolute;
+    top: 50%;
+    right: 86px;            /* 46px ширина send + 40px зазор */
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Кнопка отправки (как было) */
+  .chat-input > button{
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--accent-red);
+    color: #fff;
+    border: none;
+    box-shadow: 0 10px 20px rgba(229,57,53,.35);
+    cursor: pointer;
+    text-indent: -9999px;
+  }
+  .chat-input > button::before{
+    content: "↑";
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 18px;
+    text-indent: 0;
+  }
+  
+  /* Обёртка микрофона — чтобы легко нацеливаться стилями, если нужно */
+  .voice-btn-wrapper { display: contents; } /* не ломаем разметку VoiceRecorder */
+  

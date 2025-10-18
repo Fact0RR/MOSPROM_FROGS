@@ -1,0 +1,1 @@
+UPDATE answers SET rating = $3 WHERE chat_id = $1 AND answer_id = $2;

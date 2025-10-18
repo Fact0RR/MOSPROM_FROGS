@@ -1,0 +1,22 @@
+models:
+  - name: chat
+    hf_repo: Qwen/Qwen3-8B-GGUF
+    filename: Qwen3-8B-Q4_K_M.gguf
+    format: gguf
+    quantization: Q4_K_M
+    device: cuda
+  - name: embeddings
+    hf_repo: Qwen/Qwen3-Embedding-4B-GGUF
+    filename: Qwen3-Embedding-4B-Q4_K_M.gguf
+    format: gguf
+    quantization: Q4_K_M
+    device: cuda
+  - name: reranker
+    hf_repo: Qwen/Qwen3-Reranker-0.6B
+    filename: model.safetensors
+    format: hf
+    device: cuda
+
+server:
+  host: 0.0.0.0
+  port: 8000

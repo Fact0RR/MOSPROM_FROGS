@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./back
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - minio
+      # - sglang-service
+      - model-service
+      - recognizer-service
+    restart: always
+  
+  # sglang-service:
+  #   build:
+  #     context: ./sglang
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - SGLANG_PORT=8000
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             capabilities: [gpu]
+    # volumes:
+    #   - sglang-models:/models
+
+  model-service:
+    build:
+      context: ./model
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  recognizer-service:
+    build:
+      context: ./recognizer
+      dockerfile: Dockerfile
+    ports:
+      - "3333:3333"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=app123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      
+  migrations:
+    build:
+      context: ./back/internal/database/migrations
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-05-28T17-19-04Z
+    environment:
+      MINIO_ROOT_USER: minio-user
+      MINIO_ROOT_PASSWORD: minio-password
+      MINIO_UPDATE: "off"
+    entrypoint: >
+      /bin/sh -c '
+        isAlive() { curl -sf http://127.0.0.1:9000/minio/health/live; }    # check if Minio is alive
+        minio $$0 "$$@" --quiet & echo $$! > /tmp/minio.pid                 # start Minio in the background
+        while ! isAlive; do sleep 0.1; done                                # wait until Minio is alive
+        mc alias set minio http://127.0.0.1:9000 minio-user minio-password # setup Minio client
+        mc mb minio/voices || true                                         # create a test bucket
+        kill -s INT $$(cat /tmp/minio.pid) && rm /tmp/minio.pid             # stop Minio
+        while isAlive; do sleep 0.1; done                                  # wait until Minio is stopped
+        exec minio $$0 "$$@"                                               # start Minio in the foreground
+      '
+    command: server /data --json --console-address ':9090'
+    ports: 
+      - '9000:9000/tcp' 
+      - '9090:9090/tcp' # open http://127.0.0.1:9090 (9000 is the API port)
+    volumes: 
+      - minio-data:/data:rw
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 10s
+      start_period: 10s
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  postgres_data:
+  minio-data: {}
+#  sglang-models: {}
