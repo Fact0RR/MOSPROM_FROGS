@@ -32,6 +32,7 @@ def _base_api_url() -> str:
 
 def LLM_call(messages: List[Mapping[str, str]]) -> str:
     """Call the Hugging Face chat completion endpoint and return the reply text."""
+    print("Я LLM тут\nЯ LLM тут\nЯ LLM тут\nЯ LLM тут\n")
     if not HF_API_TOKEN:
         raise RuntimeError("HF_API_TOKEN is not configured.")
 
@@ -61,11 +62,12 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
         raise RuntimeError(f"Invalid response from chat completion endpoint: {data!r}") from exc
 
     logger.info("Received assistant message from Hugging Face provider.")
+    print("Я LLM отработал")
     return assistant_message
 
 
 def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
-    print("Я тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
+    print("Я эмбеддер тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
     if not texts:
         return []
 
@@ -93,7 +95,7 @@ def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
         except (TypeError, ValueError) as exc:
             raise RuntimeError(f"Could not parse embedding response: {data!r}") from exc
         embeddings.append(vectors)
-
+    print("Я эмбеддер отработал")
     return embeddings
 
 
