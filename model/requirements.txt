@@ -1,13 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 Flask==2.3.3
 requests==2.32.3
-# faiss-cpu
-# numpy
-# scikit-learn
-# scipy
-# sentence-transformers
-# tenacity
-# tiktoken
-# torch
-# tqdm
-# transformers
-# umap-learn
+faiss-cpu
+numpy
+scikit-learn
+scipy
+tenacity
+tiktoken
+tqdm
+transformers
+torch==2.3.1+cpu
+umap-learn
+pydantic
+huggingface-hub>=0.23.0

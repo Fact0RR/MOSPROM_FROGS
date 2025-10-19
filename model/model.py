@@ -1,20 +1,26 @@
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 
 from flask import Flask, jsonify, request
 
-#from model.agent_workflow import react_workflow
+from model.agent_workflow import react_workflow
 
 logger = logging.getLogger(__name__)
 
 
 def _execute_workflow(payload: Dict[str, Any]):
     chat_id = payload["chat_id"]
-    user_request = payload["user_request"]
+    messages_payload = payload["messages"]
+    if isinstance(messages_payload, list):
+        messages: List[Mapping[str, Any]] = messages_payload
+    else:
+        messages = []
+    messages = [*messages, {"role": "user", "content": payload["user_request"]}]
     logger.debug("Executing workflow for chat_id=%s", chat_id)
-    # workflow_result = react_workflow(chat_id, user_request)
-    workflow_result = "mock mesage with {user_request}"
-    return jsonify({"message": f"mock-данные от model\nТело запроса: {workflow_result}"})
+    workflow_result = react_workflow(chat_id, messages)
+    message = workflow_result.get("message", "")
+    is_support_needed = bool(workflow_result.get("is_support_needed", False))
+    return jsonify({"message": message, "is_support_needed": is_support_needed})
 
 
 def create_app() -> Flask:

@@ -7,7 +7,10 @@ import os
 import getpass
 from abc import ABC, abstractmethod
 
-import torch
+try:
+    import torch  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    torch = None
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
@@ -22,8 +25,20 @@ class BaseQAModel(ABC):
 # убрал  class GPT3TurboQAModel(BaseQAModel):
 # убрал  class GPT4QAModel(BaseQAModel):
 
+class GPT3TurboQAModel(BaseQAModel):
+    """Placeholder implementation to satisfy imports; retrieval does not invoke it."""
+
+    def answer_question(self, context, question):  # type: ignore[override]
+        return ""
+
+
 class UnifiedQAModel(BaseQAModel):
     def __init__(self, model_name="allenai/unifiedqa-v2-t5-3b-1363200"):
+        if torch is None:
+            raise ImportError(
+                "UnifiedQAModel requires the optional dependency 'torch'. "
+                "Install torch to use this model."
+            )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
             self.device

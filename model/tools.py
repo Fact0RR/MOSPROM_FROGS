@@ -1,401 +1,204 @@
-"""Utility tools and placeholders for the agent workflow."""
+"""Utility tools for the agent workflow: retrieval helpers and knowledge surfacing."""
 
+from __future__ import annotations
 
-import os
-import math
-import pickle
-import re
-from typing import List, Dict, Any, Optional, Union
-
-
-
-SBertEmbeddingModel = None
-FaissRetriever = None
-FaissRetrieverConfig = None
-RaptorRagPipeline = None
-
-
+import json
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    # Prefer absolute import when running from the model directory
-    from local_calls import embedding_call  # type: ignore
-except Exception:
+    from .local_calls import LLM_call, reranker_call  # type: ignore
+except Exception:  # pragma: no cover - allow flat layout imports
     try:
-        # Fallback to package-relative import when used as a module
-        from .local_calls import embedding_call  # type: ignore
+        from local_calls import LLM_call, reranker_call  # type: ignore
     except Exception:
-        embedding_call = None  # type: ignore
+        LLM_call = None  # type: ignore
+        reranker_call = None  # type: ignore
 
-_import_candidates = [
-    ("model.raptor.EmbeddingModels", "SBertEmbeddingModel"),
-    ("raptor.EmbeddingModels", "SBertEmbeddingModel"),
-    ("model.raptor.EmbeddingModel", "SBertEmbeddingModel"),
-]
-for mod, cls in _import_candidates:
-    try:
-        m = __import__(mod, fromlist=[cls])
-        SBertEmbeddingModel = getattr(m, cls)
-        break
-    except Exception:
-        SBertEmbeddingModel = None
+try:
+    from .raptor.raptorRag import RaptorRagPipeline  # type: ignore
+except Exception:  # pragma: no cover - fallback when running as flat package
+    from raptor.raptorRag import RaptorRagPipeline  # type: ignore
 
-_retriever_candidates = [
-    ("model.raptor.FaissRetriever", ("FaissRetriever", "FaissRetrieverConfig")),
-    ("raptor.FaissRetriever", ("FaissRetriever", "FaissRetrieverConfig")),
-    ("model.raptor.retriever", ("FaissRetriever", "FaissRetrieverConfig")),
-]
-for mod, names in _retriever_candidates:
-    try:
-        m = __import__(mod, fromlist=list(names))
-        FaissRetriever = getattr(m, names[0])
-        FaissRetrieverConfig = getattr(m, names[1])
-        break
-    except Exception:
-        FaissRetriever = None
-        FaissRetrieverConfig = None
+try:
+    from .State import EvidenceItem
+except Exception:  # pragma: no cover - fallback
+    from State import EvidenceItem  # type: ignore
+
+try:
+    from .prompts import get_rag_rephrase_prompt
+except Exception:  # pragma: no cover - fallback
+    from prompts import get_rag_rephrase_prompt  # type: ignore
+
+logger = logging.getLogger(__name__)
+
+_RAPTOR_PIPELINE: Optional[RaptorRagPipeline] = None
+_RAPTOR_INDEX_PATH: Optional[Path] = None
+_MAX_VARIANTS = 3  # original + two rewrites
 
 
+def _load_raptor_pipeline(top_k: int) -> Optional[RaptorRagPipeline]:
+    """Load (or cache) the Raptor pipeline from the persisted knowledge base."""
+    global _RAPTOR_PIPELINE, _RAPTOR_INDEX_PATH
+    base_dir = Path(__file__).resolve().parent
+    index_path = (base_dir / "raptorkb.pickle").resolve()
 
-_pipeline_candidates = [
-    ("model.raptor.raptorRag", "RaptorRagPipeline"),
-    ("raptor.raptorRag", "RaptorRagPipeline"),
-    ("model.raptor.raptor_rag", "RaptorRagPipeline"),
-    ("raptor.raptorRag", "RaptorRagPipeline"),
-]
-for mod, cls in _pipeline_candidates:
-    try:
-        m = __import__(mod, fromlist=[cls])
-        RaptorRagPipeline = getattr(m, cls)
-        break
-    except Exception:
-        RaptorRagPipeline = None
+    if not index_path.exists():
+        logger.warning(
+            "Raptor knowledge base missing at %s; skipping retrieval and returning no evidence.",
+            index_path,
+        )
+        return None
+
+    if (_RAPTOR_PIPELINE is None) or (_RAPTOR_INDEX_PATH != index_path):
+        try:
+            _RAPTOR_PIPELINE = RaptorRagPipeline(index_path=index_path, retriever_top_k=top_k)
+            _RAPTOR_INDEX_PATH = index_path
+        except Exception as exc:
+            logger.warning("Raptor pipeline initialization failed: %s", exc)
+            _RAPTOR_PIPELINE = None
+            _RAPTOR_INDEX_PATH = None
+            return None
+    return _RAPTOR_PIPELINE
 
 
-
-def _smart_chunk_text(text: str, chunk_size: int = 800, overlap: int = 200) -> List[str]:
-    text = re.sub(r"\r\n?", "\n", text).strip()
-    if not text:
+def _retrieve_with_raptor(
+    pipeline: Optional[RaptorRagPipeline], query: str, top_k: int
+) -> List[Dict[str, Any]]:
+    """Run retrieval with the active pipeline and return chunk metadata without scoring."""
+    if pipeline is None:
         return []
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    chunks = []
-    current = ""
-    for p in paragraphs:
-        if len(current) + 1 + len(p) <= chunk_size:
-            current = (current + "\n\n" + p).strip() if current else p
-        else:
-            if current:
-                chunks.append(current)
-            if len(p) > chunk_size:
-                sents = re.split(r'(?<=[.!?])\s+', p)
-                cur2 = ""
-                for s in sents:
-                    if len(cur2) + 1 + len(s) <= chunk_size:
-                        cur2 = (cur2 + " " + s).strip() if cur2 else s
-                    else:
-                        if cur2:
-                            chunks.append(cur2)
-                        if len(s) > chunk_size:
-                            for i in range(0, len(s), chunk_size - overlap):
-                                chunks.append(s[i:i + chunk_size])
-                            cur2 = ""
-                        else:
-                            cur2 = s
-                if cur2:
-                    chunks.append(cur2)
-                current = ""
-            else:
-                current = p
-    if current:
-        chunks.append(current)
 
-    
-    merged = []
-    i = 0
-    while i < len(chunks):
-        block = chunks[i]
-        j = i + 1
-        while j < len(chunks) and len(block) < chunk_size:
-            if len(block) + 1 + len(chunks[j]) <= chunk_size:
-                block = block + "\n\n" + chunks[j]
-                j += 1
-            else:
-                break
-        merged.append(block)
-        i = j
-
-    if overlap > 0 and len(merged) > 1:
-        final = []
-        for idx, m in enumerate(merged):
-            if idx == 0:
-                final.append(m)
-            else:
-                prev = final[-1]
-                tail = prev[-overlap:] if len(prev) >= overlap else prev
-                final.append((tail + "\n\n" + m).strip())
-        return final
-    return merged
-
-def _extract_texts_from_pickle(obj: Any) -> List[str]:
-    if obj is None:
+    try:
+        _, layer_info = pipeline.retrieve(query, top_k=top_k, collapse_tree=True)
+    except Exception as exc:
+        logger.warning("Raptor pipeline retrieval failed for query '%s': %s", query, exc)
         return []
-    if isinstance(obj, str):
-        return [obj]
-    if isinstance(obj, dict):
-        for k in ("chunks", "documents", "items", "texts"):
-            if k in obj and isinstance(obj[k], (list, tuple)):
-                obj_list = obj[k]
-                break
-        else:
-            maybe = []
-            for v in obj.values():
-                if isinstance(v, str):
-                    maybe.append(v)
-            return maybe if maybe else [str(obj)]
-    elif isinstance(obj, (list, tuple)):
-        obj_list = list(obj)
-    else:
-        return [str(obj)]
 
-    texts = []
-    for it in obj_list:
-        if isinstance(it, str):
-            texts.append(it)
-        elif isinstance(it, dict):
-            for key in ("text", "content", "chunk", "body"):
-                if key in it and isinstance(it[key], str):
-                    texts.append(it[key])
-                    break
-            else:
-                texts.append(str(it))
-        elif isinstance(it, (list, tuple)):
-            candidate = next((x for x in it if isinstance(x, str)), None)
-            if candidate:
-                texts.append(candidate)
-            else:
-                texts.append(str(it))
-        else:
-            texts.append(str(it))
-    return texts
+    results: List[Dict[str, Any]] = []
+    for meta in layer_info[:top_k]:
+        node_index = int(meta["node_index"])
+        entry: Dict[str, Any] = {
+            "text": pipeline.node_text(node_index),
+            "chunk_id": node_index,
+            "layer": int(meta.get("layer_number", -1)),
+        }
+        extra_meta = {
+            key: value
+            for key, value in meta.items()
+            if key not in {"node_index", "layer_number"}
+        }
+        if extra_meta:
+            entry["metadata"] = extra_meta
+        results.append(entry)
+    return results
 
 
+def RAG_call(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Low-level retrieval call returning raw chunk metadata for downstream tooling."""
+    pipeline = _load_raptor_pipeline(top_k)
+    return _retrieve_with_raptor(pipeline, query, top_k)
 
 
-from .State import EvidenceItem
+def _coerce_doc_id(entry: Dict[str, Any]) -> str:
+    metadata = entry.get("metadata")
+    if isinstance(metadata, dict):
+        doc_id = metadata.get("doc_id")
+        if isinstance(doc_id, str) and doc_id.strip():
+            return doc_id
+    return f"kb-chunk-{entry['chunk_id']}"
 
 
 def RAG_tool(query: str, top_k: int = 3) -> List[EvidenceItem]:
-    """Placeholder for the RAG tool implementation returning evidence items."""
-    return [
-        EvidenceItem(
-            doc_id=f"placeholder-doc-{i + 1}",
-            chunk_id=str(i),
-            text=f"Placeholder chunk {i + 1} for query: {query}",
-            score=1.0,
-        )
-        for i in range(top_k)
-    ]
+    """Convert retrieval results into EvidenceItems ranked via the reranker."""
+    queries = _generate_query_variants(query)
+    deduped_entries: Dict[Any, Dict[str, Any]] = {}
 
-
-def RAG_call(query: str,
-             data: Optional[Union[str, List[str], Dict[str, str]]] = None,
-             top_k: int = 5,
-             sbert_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-             chunk_size: int = 800,
-             overlap: int = 200) -> List[Dict[str, Any]]:
-    """
-    Унифицированная реализация RAG_call для проекта.
-    - query: строка-запрос
-    - data: путь/строка/список/словарь filename->content
-    Возвращает: список словарей {"text":..., "score":..., "file":..., "chunk_id":...}
-    """
-
-    
-    texts: List[str] = []
-    metas: List[Dict[str, Any]] = []
-
-    if data is None:
-        return []
-
-    if isinstance(data, str) and os.path.exists(data):
+    for variant in queries:
         try:
-            with open(data, "rb") as fh:
-                obj = pickle.load(fh)
-            txts = _extract_texts_from_pickle(obj)
-            for i, t in enumerate(txts):
-                texts.append(t)
-                metas.append({"file": os.path.basename(data), "chunk_id": i})
-        except Exception:
-            with open(data, "r", encoding="utf-8", errors="ignore") as fh:
-                txt = fh.read()
-            chunks = _smart_chunk_text(txt, chunk_size=chunk_size, overlap=overlap)
-            for i, c in enumerate(chunks):
-                texts.append(c)
-                metas.append({"file": os.path.basename(data), "chunk_id": i})
-
-    elif isinstance(data, str):
-        chunks = _smart_chunk_text(data, chunk_size=chunk_size, overlap=overlap)
-        for i, c in enumerate(chunks):
-            texts.append(c)
-            metas.append({"file": None, "chunk_id": i})
-
-    elif isinstance(data, (list, tuple)):
-        for i, it in enumerate(data):
-            texts.append(str(it))
-            metas.append({"file": None, "chunk_id": i})
-
-    elif isinstance(data, dict):
-        for fname, content in data.items():
-            chunks = _smart_chunk_text(content, chunk_size=chunk_size, overlap=overlap)
-            for j, c in enumerate(chunks):
-                texts.append(c)
-                metas.append({"file": fname, "chunk_id": j})
-
-    if not texts:
-        return []
-
-    
-    if RaptorRagPipeline is not None:
-        
-        pipeline = RaptorRagPipeline()
-        if hasattr(pipeline, "retrieve") or hasattr(pipeline, "query"):
-            
-            if hasattr(pipeline, "retrieve"):
-                raw = pipeline.retrieve(query, top_k)
-            else:
-                raw = pipeline.query(query, top_k)
-            
-            raw_res = raw
-            
-        elif hasattr(pipeline, "run"):
-            raw_res = pipeline.run(query=query, documents=texts, top_k=top_k)
-        else:
-            
-            if hasattr(pipeline, "build_from_texts"):
-                pipeline.build_from_texts(texts)
-                raw_res = pipeline.query(query, top_k=top_k)
-            else:
-                
-                raw_res = None
-    else:
-        raw_res = None
-
-    # Embedding-based cosine similarity fallback using embedding_call
-    if raw_res is None and embedding_call is not None:
-        try:
-            doc_embs = embedding_call(texts)  # List[List[float]]
-            if not doc_embs:
-                return []
-            query_embs = embedding_call([query])
-            if not query_embs:
-                return []
-            query_emb = query_embs[0]
+            raw_results = RAG_call(variant, top_k=top_k)
         except Exception as exc:
-            raise RuntimeError("Embedding_call failed") from exc
+            logger.warning("RAG_call failed for variant '%s': %s", variant, exc)
+            continue
 
-        def _dot(a, b):
-            return sum((float(x) * float(y)) for x, y in zip(a, b))
+        for entry in raw_results:
+            chunk_id = entry.get("chunk_id")
+            if chunk_id is None:
+                continue
 
-        def _norm(a):
-            val = _dot(a, a)
-            return math.sqrt(val) if val > 0 else 1e-12
-
-        qn = _norm(query_emb)
-        scored = []
-        for i, emb_vec in enumerate(doc_embs):
-            try:
-                score = _dot(query_emb, emb_vec) / (qn * _norm(emb_vec))
-            except Exception:
-                score = 0.0
-            scored.append((i, float(score)))
-
-        scored.sort(key=lambda t: t[1], reverse=True)
-        raw_res = scored[:top_k]
-
-    
-    if raw_res is None:
-        if SBertEmbeddingModel is None or FaissRetriever is None or FaissRetrieverConfig is None:
-            raise RuntimeError("Не найдены локальные SBertEmbeddingModel / FaissRetriever в проекте. Проверь model/raptor/ и __init__.py импорты.")
-        emb = SBertEmbeddingModel(model_name=sbert_model_name)
-        retr_cfg = FaissRetrieverConfig(embedding_model=emb, top_k=top_k)
-        retr = FaissRetriever(retr_cfg)
-        
-        if hasattr(retr, "build_from_texts"):
-            retr.build_from_texts(texts)
-        elif hasattr(retr, "index_texts"):
-            retr.index_texts(texts)
-        elif hasattr(retr, "index"):
-            retr.index(texts)
-        else:
-            
-            retr.build(texts)
-        raw_res = retr.query(query, top_k=top_k)
-
-    
-    out: List[Dict[str, Any]] = []
-
-    
-    if isinstance(raw_res, (list, tuple)) and raw_res and all(isinstance(x, int) for x in raw_res):
-        for idx in raw_res[:top_k]:
-            if 0 <= idx < len(texts):
-                out.append({"text": texts[idx], "score": None, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-        return out
-
-    
-    if isinstance(raw_res, (list, tuple)) and raw_res and all(isinstance(x, (list, tuple)) for x in raw_res):
-        for item in raw_res[:top_k]:
-            if len(item) >= 2 and isinstance(item[0], int):
-                idx, score = item[0], item[1]
-                out.append({"text": texts[idx], "score": float(score) if isinstance(score,(int,float)) else None, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-            elif len(item) >= 2 and isinstance(item[0], str):
-                text = item[0]; score = item[1] if isinstance(item[1], (int,float)) else None
-                try:
-                    idx = texts.index(text)
-                except ValueError:
-                    idx = None
-                if idx is not None:
-                    out.append({"text": text, "score": score, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-                else:
-                    out.append({"text": text, "score": score, "file": None, "chunk_id": None})
+            if chunk_id not in deduped_entries:
+                deduped_entries[chunk_id] = entry
             else:
-                out.append({"text": str(item), "score": None, "file": None, "chunk_id": None})
-        return out
+                existing = deduped_entries[chunk_id]
+                if "metadata" in entry and isinstance(entry["metadata"], dict):
+                    metadata = existing.setdefault("metadata", {})
+                    if isinstance(metadata, dict):
+                        metadata.update(entry["metadata"])
 
-    
-    if isinstance(raw_res, (list, tuple)):
-        for item in raw_res[:top_k]:
-            if isinstance(item, dict):
-                text = item.get("text") or item.get("content") or item.get("doc") or None
-                score = item.get("score") or item.get("distance") or None
-                if text is None and (item.get("index") is not None or item.get("idx") is not None):
-                    idx = item.get("index") or item.get("idx")
-                    if isinstance(idx, int) and 0 <= idx < len(texts):
-                        out.append({"text": texts[idx], "score": score, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-                    else:
-                        out.append({"text": str(item), "score": score, "file": None, "chunk_id": None})
-                else:
-                    if text is not None:
-                        try:
-                            idx = texts.index(text)
-                        except ValueError:
-                            idx = None
-                        if idx is not None:
-                            out.append({"text": text, "score": score, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-                        else:
-                            out.append({"text": text, "score": score, "file": None, "chunk_id": None})
-                    else:
-                        out.append({"text": str(item), "score": score, "file": None, "chunk_id": None})
-            elif isinstance(item, str):
-                try:
-                    idx = texts.index(item)
-                except ValueError:
-                    idx = None
-                if idx is not None:
-                    out.append({"text": texts[idx], "score": None, "file": metas[idx].get("file"), "chunk_id": metas[idx].get("chunk_id")})
-                else:
-                    out.append({"text": item, "score": None, "file": None, "chunk_id": None})
-            else:
-                out.append({"text": str(item), "score": None, "file": None, "chunk_id": None})
-        return out
+    if not deduped_entries:
+        return []
 
-    0
-    return [{"text": str(raw_res), "score": None, "file": None, "chunk_id": None}]
+    pooled_entries = list(deduped_entries.values())
+    documents = [str(entry["text"]) for entry in pooled_entries]
+    scores = reranker_call(query, documents)
+
+    if len(scores) != len(pooled_entries):
+        logger.warning(
+            "Reranker returned %d scores for %d documents; missing entries default to 0.0",
+            len(scores),
+            len(pooled_entries),
+        )
+
+    ranked_entries: List[Tuple[Dict[str, Any], float]] = []
+    for idx, entry in enumerate(pooled_entries):
+        score = float(scores[idx]) if idx < len(scores) else 0.0
+        ranked_entries.append((entry, score))
+
+    ranked_entries.sort(key=lambda item: item[1], reverse=True)
+    ranked_entries = ranked_entries[:top_k]
+
+    evidence_items: List[EvidenceItem] = []
+    for entry, score in ranked_entries:
+        evidence_items.append(
+            EvidenceItem(
+                doc_id=_coerce_doc_id(entry),
+                chunk_id=str(entry["chunk_id"]),
+                text=str(entry["text"]),
+                score=score,
+            )
+        )
+
+    return evidence_items
+
+
+def _generate_query_variants(query: str) -> List[str]:
+    """Create a list containing the original query and up to two LLM-generated rewrites."""
+    cleaned_query = (query or "").strip()
+    variants: List[str] = [cleaned_query] if cleaned_query else []
+
+    if not cleaned_query:
+        return variants
+
+    try:
+        messages = get_rag_rephrase_prompt(cleaned_query)
+        raw_response = LLM_call(messages)
+        parsed = json.loads(raw_response)
+        candidate_variants = parsed.get("variants", [])
+    except Exception as exc:
+        logger.warning("Failed to obtain query rephrasings: %s", exc)
+        candidate_variants = []
+
+    for candidate in candidate_variants:
+        if len(variants) >= _MAX_VARIANTS:
+            break
+        if not isinstance(candidate, str):
+            continue
+        normalized = candidate.strip()
+        if not normalized:
+            continue
+        if any(normalized.lower() == existing.lower() for existing in variants):
+            continue
+        variants.append(normalized)
+
+    return variants or [cleaned_query]
