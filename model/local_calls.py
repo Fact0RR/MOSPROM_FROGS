@@ -65,6 +65,7 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
 
 
 def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
+    print("Я тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
     if not texts:
         return []
 
