@@ -36,7 +36,7 @@ git clone https://github.com/Fact0RR/MOSPROM_FROGS.git
 
 ```.env
 HF_API_TOKEN=****Замените_на_ваш_Hugging_face_токен**********
-HF_CHAT_MODEL=Qwen/Qwen3-1.5B-Reasoning
+HF_CHAT_MODEL=Qwen/Qwen3-8B:nscale
 HF_CHAT_TEMPERATURE=0.7
 # Leave HF_CHAT_MAX_OUTPUT_TOKENS empty to allow full responses by default.
 HF_CHAT_MAX_OUTPUT_TOKENS=
@@ -52,7 +52,7 @@ cd https://github.com/Fact0RR/MOSPROM_FROGS.git
 docker-compose up
 ```
 
-4. После запуска всех контейнеров(контейнер с миграциями после отработки выключится) нужно подождать 2-3 минуты, чтобы скачались модели.
+4. После запуска всех контейнеров(контейнер с миграциями после отработки выключится) нужно подождать 2-3 минуты, чтобы скачалась и отработала embedding модель при инициализации (это связано с тем, что создание образа с cuda занимает от 10ти минут, что не подходило под условия защиты).
 А дальше перейти по адресу ``localhost:5175``
 
 <div align="center">
@@ -70,6 +70,8 @@ docker-compose up
 3. Чат-бот с поддержкой голосового интерфейса.
 4. Статистка запросов.
 5. Возможность подключение в чат живого сотрудника
+6. Агентная архитектура ReAct с различными вариантами разрешения проблемы (перевод на оператора, задавание дополнительных вопросов, ответ пользователю)
+7. Мощный RAG инструмент: метод организации векторной базы данных RAPTOR, улучшение метрик при помощи Rerank и RagFusion
 
 ## <a name="4">Стек </a>
 
@@ -83,7 +85,6 @@ docker-compose up
 
 *Состав команды **"Жабки"***
 
-- 
 - <h4><img align="center" height="25" src="https://user-images.githubusercontent.com/51875349/198863127-837491f2-b57f-4c75-9840-6a4b01236c7a.png">: @FRIZFOREVER, Хромов Кирилл - ML-engineer</h3>
 - <h4><img align="center" height="25" src="https://user-images.githubusercontent.com/51875349/198863127-837491f2-b57f-4c75-9840-6a4b01236c7a.png">: @Timofey382, Пренко Тимофей - ML-engineer</h3>
 - <h4><img align="center" height="25" src="https://user-images.githubusercontent.com/51875349/198863127-837491f2-b57f-4c75-9840-6a4b01236c7a.png">: @imyourrbestfriend,  Меликов Владислав - Frontend developer</h3>
