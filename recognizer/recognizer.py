@@ -34,7 +34,7 @@ def mock():
         # question_text = "Это имитация распознанного текста с помощью Whisper medium модели"
         
         response = {
-            "question": question_text,
+            "message": question_text,
             "voice_url": voice_url
         }
         
