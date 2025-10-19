@@ -15,23 +15,6 @@ services:
       - recognizer-service
     restart: always
   
-  # sglang-service:
-  #   build:
-  #     context: ./sglang
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     - SGLANG_PORT=8000
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             capabilities: [gpu]
-    # volumes:
-    #   - sglang-models:/models
-
   model-service:
     build:
       context: ./model
@@ -40,6 +23,11 @@ services:
       - "3000:3000"
     environment:
       - PYTHONUNBUFFERED=1
+      - HF_API_TOKEN=${HF_API_TOKEN:-}
+    volumes:
+      - ./knowledge.txt:/app/knowledge.txt:ro
+    command: >
+      /bin/sh -c "python -m model.build_kb --source /app/knowledge.txt --output /app/model/raptorkb.pickle && python -m model.main"
 
   recognizer-service:
     build:

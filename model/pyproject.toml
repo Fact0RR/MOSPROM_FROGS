@@ -12,11 +12,10 @@ dependencies = [
     "numpy",
     "scikit-learn",
     "scipy",
-    "sentence-transformers",
     "tenacity",
     "tiktoken",
-    "torch",
     "tqdm",
     "transformers",
     "umap-learn",
+    "huggingface-hub>=0.23.0",
 ]

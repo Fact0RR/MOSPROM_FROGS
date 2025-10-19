@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +24,10 @@ class StepAudit(BaseModel):
 class State(BaseModel):
     request_id: int = Field(..., description="Stable ID to correlate logs, retries, and tool calls.")
     raw_text: str = Field(..., description="Original user message for audit and replay.")
+    chat_history: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Full chat transcript with role/content pairs for planner context.",
+    )
     norm_text: Optional[str] = Field(None, description="Optionally normalized text used by tools.")
     intent_label: Optional[str] = Field(None, description="Classifier's primary label for routing (e.g., 'billing').")
     intent_conf: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence for intent_label in [0,1].")
@@ -33,3 +37,6 @@ class State(BaseModel):
     steps: List[StepAudit] = Field(default_factory=list, description="Action/observation audit for the ReAct loop.")
     answer_draft: Optional[str] = Field(None, description="First-pass synthesized answer before checks.")
     thoughts: List[str] = Field(default_factory=list, description="Intermediate observations captured during ReAct.")
+    support_needed: bool = Field(False, description="True when automation escalates to a human operator.")
+    rag_used: bool = Field(False, description="True once a retrieval step has executed in this session.")
+    finalize_required: bool = Field(True, description="False when the current draft should be returned as-is.")

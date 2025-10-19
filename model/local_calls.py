@@ -1,156 +1,136 @@
 import logging
-from typing import List, Mapping
+from typing import List, Mapping, Sequence
 
 import requests
 
 from .config import (
-    SG_LANG_API_KEY,
-    SG_LANG_CHAT_MODEL,
-    SG_LANG_CHAT_URL,
-    SG_LANG_EMBEDDINGS_MODEL,
-    SG_LANG_EMBEDDINGS_URL,
-    SG_LANG_RERANK_MODEL,
-    SG_LANG_RERANK_URL,
+    HF_API_BASE_URL,
+    HF_API_TOKEN,
+    HF_CHAT_MAX_OUTPUT_TOKENS,
+    HF_CHAT_MODEL,
+    HF_CHAT_TEMPERATURE,
+    HF_EMBEDDING_MODEL,
+    HF_RERANK_MODEL,
+    HF_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)
 
 
+def _ensure_messages(messages: Sequence[Mapping[str, str]]) -> List[Mapping[str, str]]:
+    normalized: List[Mapping[str, str]] = []
+    for entry in messages:
+        if "role" not in entry or "content" not in entry:
+            raise ValueError(f"Invalid message payload: {entry}")
+        normalized.append({"role": entry["role"], "content": entry["content"]})
+    return normalized
+
+
+def _base_api_url() -> str:
+    return HF_API_BASE_URL.rstrip("/") if HF_API_BASE_URL else "https://router.huggingface.co"
+
+
 def LLM_call(messages: List[Mapping[str, str]]) -> str:
-    """Call SG_Lang chat completion endpoint using pre-structured messages and return the reply text."""
-    logger.info("Sending messages to SG_Lang: %s", messages)
+    """Call the Hugging Face chat completion endpoint and return the reply text."""
+    if not HF_API_TOKEN:
+        raise RuntimeError("HF_API_TOKEN is not configured.")
 
+    normalized_messages = _ensure_messages(messages)
+    url = f"{_base_api_url()}/v1/chat/completions"
     headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {SG_LANG_API_KEY}",
-    }
-    body = {
-        "model": SG_LANG_CHAT_MODEL,
-        "messages": messages,
-        "stream": False,
     }
 
-    response = requests.post(SG_LANG_CHAT_URL, headers=headers, json=body, timeout=30)
-    payload = response.json()
-    assistant_message = payload["choices"][0]["message"]["content"]
+    payload = {
+        "model": HF_CHAT_MODEL,
+        "messages": normalized_messages,
+        "temperature": HF_CHAT_TEMPERATURE,
+    }
+    if HF_CHAT_MAX_OUTPUT_TOKENS is not None:
+        payload["max_tokens"] = HF_CHAT_MAX_OUTPUT_TOKENS
 
-    logger.info("Received assistant message from SG_Lang: %s", assistant_message)
+    logger.debug("Posting chat completion request to %s", url)
+    response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
+    response.raise_for_status()
+    data = response.json()
+
+    try:
+        assistant_message = data["choices"][0]["message"].get("content") or ""
+    except (KeyError, IndexError, AttributeError) as exc:
+        raise RuntimeError(f"Invalid response from chat completion endpoint: {data!r}") from exc
+
+    logger.info("Received assistant message from Hugging Face provider.")
     return assistant_message
 
 
-def embedding_call(texts: List[str]) -> List[List[float]]:
-    """Call the SGLang embeddings endpoint and return embeddings for each text."""
-    logger.info(
-        "Requesting embeddings from SG_Lang; count=%d model=%s",
-        len(texts),
-        SG_LANG_EMBEDDINGS_MODEL,
-    )
+def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
+    if not texts:
+        return []
 
+    if not HF_API_TOKEN:
+        raise RuntimeError("HF_API_TOKEN is not configured.")
+
+    base_url = _base_api_url()
+    url = f"{base_url}/models/{model_id}"
     headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {SG_LANG_API_KEY}",
-    }
-    body = {
-        "model": SG_LANG_EMBEDDINGS_MODEL,
-        "input": texts,
     }
 
-    try:
-        response = requests.post(SG_LANG_EMBEDDINGS_URL, headers=headers, json=body, timeout=30)
+    embeddings: List[List[float]] = []
+    for query in texts:
+        payload = {"inputs": {"source_sentence": query, "sentences": [query]}}
+        logger.debug("Posting embedding request to %s", url)
+        response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
         response.raise_for_status()
-        payload = response.json()
-    except requests.RequestException as exc:
-        logger.exception("Embedding request failed: %s", exc)
-        raise RuntimeError("Embedding endpoint request failed") from exc
+        data = response.json()
+        if not isinstance(data, list) or not data:
+            raise RuntimeError(f"Unexpected embedding response payload: {data!r}")
+        try:
+            vectors = [float(value) for value in data]
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(f"Could not parse embedding response: {data!r}") from exc
+        embeddings.append(vectors)
 
-    try:
-        embeddings = [item["embedding"] for item in payload["data"]]
-    except (KeyError, TypeError) as exc:
-        logger.exception("Unexpected embedding payload structure: %s", payload)
-        raise RuntimeError("Invalid response from embedding endpoint") from exc
+    return embeddings
 
-    if len(embeddings) != len(texts):
+
+def embedding_call(texts: List[str]) -> List[List[float]]:
+    """Return embeddings for each text using the configured Hugging Face model."""
+    embeddings = _embedding_request(texts, HF_EMBEDDING_MODEL)
+
+    if embeddings and len(embeddings) != len(texts):
         logger.warning(
             "Embedding count mismatch; requested=%d received=%d",
             len(texts),
             len(embeddings),
         )
-
     return embeddings
 
 
 def reranker_call(query: str, documents: List[str]) -> List[float]:
-    """Call the SGLang reranker endpoint and return scores aligned with the input documents."""
+    """Return similarity scores between the query and documents using the HF reranker model."""
     if not documents:
         return []
+    if not HF_API_TOKEN:
+        raise RuntimeError("HF_API_TOKEN is not configured.")
 
-    logger.info(
-        "Requesting rerank scores from SG_Lang; model=%s docs=%d",
-        SG_LANG_RERANK_MODEL,
-        len(documents),
-    )
-
+    url = f"{_base_api_url()}/models/{HF_RERANK_MODEL}"
     headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {SG_LANG_API_KEY}",
     }
-    body = {
-        "model": SG_LANG_RERANK_MODEL,
-        "query": query,
-        "documents": documents,
-    }
+    payload = {"inputs": {"source_sentence": query, "sentences": documents}}
 
+    logger.debug("Posting reranker request to %s", url)
+    response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
+    response.raise_for_status()
+    data = response.json()
+
+    if not isinstance(data, list):
+        raise RuntimeError(f"Unexpected reranker response payload: {data!r}")
     try:
-        response = requests.post(SG_LANG_RERANK_URL, headers=headers, json=body, timeout=30)
-        response.raise_for_status()
-        payload = response.json()
-    except requests.RequestException as exc:
-        logger.exception("Reranker request failed: %s", exc)
-        raise RuntimeError("Reranker endpoint request failed") from exc
-
-    try:
-        data = payload["data"]
-    except (KeyError, TypeError) as exc:
-        logger.exception("Unexpected reranker payload structure: %s", payload)
-        raise RuntimeError("Invalid response from reranker endpoint") from exc
-
-    scores: List[float]
-    # Prefer explicit indices when available so the order matches the original list.
-    indexed_scores: List[float] = [0.0] * len(documents)
-    found_indices = False
-    collected_scores: List[float] = []
-
-    for item in data:
-        if not isinstance(item, Mapping):
-            logger.error("Reranker response item is not a mapping: %s", item)
-            raise RuntimeError("Invalid response from reranker endpoint")
-
-        score = item.get("score", item.get("relevance_score"))
-        if score is None:
-            logger.error("Reranker response missing score: %s", item)
-            raise RuntimeError("Invalid response from reranker endpoint")
-
-        index = item.get("index")
-        if index is None:
-            collected_scores.append(float(score))
-            continue
-
-        found_indices = True
-        if not (0 <= index < len(documents)):
-            logger.error("Reranker response index out of range: %s", item)
-            raise RuntimeError("Invalid response from reranker endpoint")
-        indexed_scores[index] = float(score)
-
-    if found_indices:
-        scores = indexed_scores
-    else:
-        scores = [float(s) for s in collected_scores]
-
-    if len(scores) != len(documents):
-        logger.warning(
-            "Reranker score count mismatch; requested=%d received=%d",
-            len(documents),
-            len(scores),
-        )
-
-    return scores
+        return [float(score) for score in data]
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"Could not parse reranker response: {data!r}") from exc
