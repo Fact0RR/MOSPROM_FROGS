@@ -1,8 +1,11 @@
 import logging
-import time
+from threading import Lock
 from typing import List, Mapping, Sequence
 
 import requests
+import torch
+import torch.nn.functional as F
+from transformers import AutoModel, AutoTokenizer
 
 from .config import (
     HF_API_BASE_URL,
@@ -10,15 +13,16 @@ from .config import (
     HF_CHAT_MAX_OUTPUT_TOKENS,
     HF_CHAT_MODEL,
     HF_CHAT_TEMPERATURE,
-    HF_EMBEDDING_MODEL,
     HF_RERANK_MODEL,
     HF_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_MAX_RETRIES = 6
-EMBEDDING_RETRY_DELAY_SECONDS = 5
+EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B"
+_embedding_model_lock = Lock()
+_embedding_model = None
+_embedding_tokenizer = None
 
 
 def _ensure_messages(messages: Sequence[Mapping[str, str]]) -> List[Mapping[str, str]]:
@@ -70,57 +74,14 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
     return assistant_message
 
 
-def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
+def embedding_call(texts: List[str]) -> List[List[float]]:
+    """Return embeddings for each text using the configured Hugging Face model."""
     print("Я эмбеддер тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
     print(texts)
     if not texts:
         return []
 
-    if not HF_API_TOKEN:
-        raise RuntimeError("HF_API_TOKEN is not configured.")
-
-    base_url = _base_api_url()
-    url = f"{base_url}/models/{model_id}"
-    headers = {
-        "Authorization": f"Bearer {HF_API_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-    embeddings: List[List[float]] = []
-    for query in texts:
-        payload = {"inputs": {"source_sentence": query, "sentences": [query]}}
-        logger.debug("Posting embedding request to %s", url)
-        for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
-            response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
-            try:
-                response.raise_for_status()
-            except requests.HTTPError as exc:
-                if response.status_code == 404 and attempt < EMBEDDING_MAX_RETRIES:
-                    logger.warning(
-                        "Embedding request returned 404 (attempt %d/%d); retrying after %.1fs",
-                        attempt,
-                        EMBEDDING_MAX_RETRIES,
-                        EMBEDDING_RETRY_DELAY_SECONDS,
-                    )
-                    time.sleep(EMBEDDING_RETRY_DELAY_SECONDS)
-                    continue
-                raise exc
-            break
-        data = response.json()
-        if not isinstance(data, list) or not data:
-            raise RuntimeError(f"Unexpected embedding response payload: {data!r}")
-        try:
-            vectors = [float(value) for value in data]
-        except (TypeError, ValueError) as exc:
-            raise RuntimeError(f"Could not parse embedding response: {data!r}") from exc
-        embeddings.append(vectors)
-    print("Я эмбеддер отработал")
-    return embeddings
-
-
-def embedding_call(texts: List[str]) -> List[List[float]]:
-    """Return embeddings for each text using the configured Hugging Face model."""
-    embeddings = _embedding_request(texts, HF_EMBEDDING_MODEL)
+    embeddings = _local_embedding_request(texts)
 
     if embeddings and len(embeddings) != len(texts):
         logger.warning(
@@ -128,6 +89,55 @@ def embedding_call(texts: List[str]) -> List[List[float]]:
             len(texts),
             len(embeddings),
         )
+    return embeddings
+
+
+def _load_embedding_components():
+    """Lazily load the local embedding model and tokenizer once."""
+    global _embedding_model, _embedding_tokenizer
+    if _embedding_model is not None and _embedding_tokenizer is not None:
+        return _embedding_tokenizer, _embedding_model
+
+    with _embedding_model_lock:
+        if _embedding_model is None or _embedding_tokenizer is None:
+            logger.info("Loading local embedding model %s on CPU.", EMBEDDING_MODEL_ID)
+            tokenizer = AutoTokenizer.from_pretrained(
+                EMBEDDING_MODEL_ID,
+                trust_remote_code=True,
+            )
+            model = AutoModel.from_pretrained(
+                EMBEDDING_MODEL_ID,
+                trust_remote_code=True,
+            )
+            model.to("cpu")
+            model.eval()
+            _embedding_model = model
+            _embedding_tokenizer = tokenizer
+    return _embedding_tokenizer, _embedding_model
+
+
+def _local_embedding_request(texts: List[str]) -> List[List[float]]:
+    tokenizer, model = _load_embedding_components()
+    encoded = tokenizer(
+        texts,
+        padding=True,
+        truncation=True,
+        return_tensors="pt",
+    )
+
+    with torch.no_grad():
+        model_output = model(**encoded)
+
+    token_embeddings = model_output.last_hidden_state
+    attention_mask = encoded["attention_mask"].unsqueeze(-1)
+    mask = attention_mask.expand_as(token_embeddings).float()
+    masked_embeddings = token_embeddings * mask
+    summed = masked_embeddings.sum(dim=1)
+    counts = mask.sum(dim=1).clamp(min=1e-9)
+    pooled = summed / counts
+    normalized = F.normalize(pooled, p=2, dim=1)
+    embeddings = normalized.cpu().tolist()
+    print("Я эмбеддер отработал")
     return embeddings
 
 
