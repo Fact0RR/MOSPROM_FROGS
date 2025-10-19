@@ -11,7 +11,7 @@ services:
       - postgres
       - minio
       - model-service
-      # - recognizer-service
+      - recognizer-service
     restart: always
   
   model-service:
@@ -28,14 +28,14 @@ services:
     command: >
       /bin/sh -c "python -m model.main & python -m model.build_kb --source /app/knowledge.txt --output /app/model/raptorkb.pickle; wait"
 
-  # recognizer-service:
-  #   build:
-  #     context: ./recognizer
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3333:3333"
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
+  recognizer-service:
+    build:
+      context: ./recognizer
+      dockerfile: Dockerfile
+    ports:
+      - "3333:3333"
+    environment:
+      - PYTHONUNBUFFERED=1
 
   postgres:
     image: postgres:15-alpine
