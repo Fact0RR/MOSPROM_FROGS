@@ -52,7 +52,7 @@ cd https://github.com/Fact0RR/MOSPROM_FROGS.git
 docker-compose up
 ```
 
-4. Перейти по адресу ``localhost:5175``
+4. После нужно подожлать 2-3 минуты, чтобы скачались модели, а дальше перейти по адресу ``localhost:5175``
 
 <div align="center">
 
