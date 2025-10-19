@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List, Mapping, Sequence
 
 import requests
@@ -15,6 +16,9 @@ from .config import (
 )
 
 logger = logging.getLogger(__name__)
+
+EMBEDDING_MAX_RETRIES = 3
+EMBEDDING_RETRY_DELAY_SECONDS = 0.5
 
 
 def _ensure_messages(messages: Sequence[Mapping[str, str]]) -> List[Mapping[str, str]]:
@@ -86,8 +90,22 @@ def _embedding_request(texts: List[str], model_id: str) -> List[List[float]]:
     for query in texts:
         payload = {"inputs": {"source_sentence": query, "sentences": [query]}}
         logger.debug("Posting embedding request to %s", url)
-        response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
-        response.raise_for_status()
+        for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
+            response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as exc:
+                if response.status_code == 404 and attempt < EMBEDDING_MAX_RETRIES:
+                    logger.warning(
+                        "Embedding request returned 404 (attempt %d/%d); retrying after %.1fs",
+                        attempt,
+                        EMBEDDING_MAX_RETRIES,
+                        EMBEDDING_RETRY_DELAY_SECONDS,
+                    )
+                    time.sleep(EMBEDDING_RETRY_DELAY_SECONDS)
+                    continue
+                raise exc
+            break
         data = response.json()
         if not isinstance(data, list) or not data:
             raise RuntimeError(f"Unexpected embedding response payload: {data!r}")
