@@ -7,15 +7,14 @@
 </div>
 
 ## Оглавление
-
 - ### [Задание](#1)
-- ### [Запуск кода](#3)
-- ### [Уникальность нашего решения](#4)
-- ### [Стек](#5)
-- ### [Команда](#6)
-- ### [Ссылки](#7)
+- ### [Запуск кода](#2)
+- ### [Уникальность нашего решения](#3)
+- ### [Стек](#4)
+- ### [Команда](#5)
+- ### [Ссылки](#6)
 
-## `<a name="1">` Задание `</a>`
+## <a name="1"> Задание </a>
 
 В Росатоме ежедневно обрабатывают десятки тысяч заявок по доступу и техническим сбоям.
 
@@ -23,7 +22,7 @@
 
 Участникам предлагается разработать прототип программно-аппаратного модуля в виде веб-сервиса с интеллектуальной системой для автоматизации обработки обращений пользователей внутри корпорации.
 
-## `<a name="3">`Запуск кода `</a>`
+## <a name="2">Запуск кода </a>
 
 ### Последовательные шаги для запска кода:
 
@@ -33,15 +32,27 @@
 git clone https://github.com/Fact0RR/MOSPROM_FROGS.git
 ```
 
-2. Добавить .env c чувствительной информацией в корень про:
-4. Запустить сборку контейнеров:
+2. Добавить .env c чувствительной информацией в корень проекта:
+
+```.env
+HF_API_TOKEN=hf_rt****Замените_на_ваш_токен**********
+HF_CHAT_MODEL=Qwen/Qwen3-1.5B-Reasoning
+HF_CHAT_TEMPERATURE=0.7
+# Leave HF_CHAT_MAX_OUTPUT_TOKENS empty to allow full responses by default.
+HF_CHAT_MAX_OUTPUT_TOKENS=
+HF_EMBEDDING_MODEL=intfloat/multilingual-e5-small
+HF_RERANK_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+HF_TIMEOUT=60
+HF_MAX_RETRIES=3
+```
+3. Запустить сборку контейнеров:
 
 ```Bash
 cd https://github.com/Fact0RR/MOSPROM_FROGS.git
 docker-compose up
 ```
 
-3. Перейти по адресу ``localhost:5175``
+4. Перейти по адресу ``localhost:5175``
 
 <div align="center">
 
@@ -51,7 +62,7 @@ docker-compose up
 
 </div>
 
-## `<a name="4">`Уникальность нашего решения `</a>`
+## <a name="3">Уникальность нашего решения </a>
 
 1. Регистрация и авторизация
 2. Быстрая скорость работы за счет выбора подходящей модели
@@ -59,15 +70,15 @@ docker-compose up
 4. Статистка запросов.
 5. Возможность подключение в чат живого сотрудника
 
-## `<a name="5">`Стек `</a>`
+## <a name="4">Стек </a>
 
 
-<img height="300" alt="logo" src="assets/stack.jpg">
+<img height="300" alt="logo" src="assets/stack.jpg" style="display: block; margin: 0 auto;">
 
 
 </div>
 
-## `<a name="6">`Команда `</a>`
+## <a name="5">Команда </a>
 
 *Состав команды **"Жабки"***
 
@@ -78,6 +89,6 @@ docker-compose up
 - <h4><img align="center" height="25" src="https://user-images.githubusercontent.com/51875349/198863127-837491f2-b57f-4c75-9840-6a4b01236c7a.png">: @Llaceyne, Гулария Лана - Designer, Pitcher</h3>
 - <h4><img align="center" height="25" src="https://user-images.githubusercontent.com/51875349/198863127-837491f2-b57f-4c75-9840-6a4b01236c7a.png">: @facT0RR, Маслов Денис - TeamLead/Backend developer</h3>
 
-## `<a name="7">`Ссылки `</a>`
+## <a name="6">Ссылки </a>
 
 - [ссылка на скринкаст](https://drive.google.com/drive/folders/1AV1OihR0tMgg06eclJ7MylKVASHN3H-E)&nbsp;
