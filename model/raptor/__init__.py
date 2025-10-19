@@ -1,7 +1,6 @@
 # raptor/__init__.py
 from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
-from .EmbeddingModels import (BaseEmbeddingModel, 
-                              SBertEmbeddingModel)
+from .EmbeddingModels import BaseEmbeddingModel
 from .FaissRetriever import FaissRetriever, FaissRetrieverConfig
 from .QAModels import (BaseQAModel, 
                        UnifiedQAModel)

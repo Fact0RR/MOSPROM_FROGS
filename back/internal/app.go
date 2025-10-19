@@ -47,11 +47,11 @@ func InitApp(config *settings.Settings, logger *logrus.Logger) (*App, error) {
 	}
 	logger.Info("Есть подключение к model! ⚙️")
 
-	err = client.Ping(config.Recognizer)
-	if err != nil {
-		logger.Fatalf("Нет подключение к recognizer %v", err)
-	}
-	logger.Info("Есть подключение к recognizer! 🔊")
+	// err = client.Ping(config.Recognizer)
+	// if err != nil {
+	// 	logger.Fatalf("Нет подключение к recognizer %v", err)
+	// }
+	// logger.Info("Есть подключение к recognizer! 🔊")
 
 	modelClient := client.NewClient("POST", config.Model, "/mock")
 	recognizerClient := client.NewClient("POST", config.Recognizer, "/mock")

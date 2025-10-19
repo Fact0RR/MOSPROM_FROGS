@@ -13,6 +13,15 @@ class BaseSummarizationModel(ABC):
         pass
 
 
-# убрал  class GPT3TurboSummarizationModel(BaseSummarizationModel):
-# убрал class GPT3SummarizationModel(BaseSummarizationModel):
+class GPT3TurboSummarizationModel(BaseSummarizationModel):
+    """Placeholder implementation used solely to keep configuration defaults working."""
 
+    def summarize(self, context, max_tokens=150):  # type: ignore[override]
+        return context
+
+
+class GPT3SummarizationModel(BaseSummarizationModel):
+    """Historical stub retained for compatibility with upstream imports."""
+
+    def summarize(self, context, max_tokens=150):  # type: ignore[override]
+        return context

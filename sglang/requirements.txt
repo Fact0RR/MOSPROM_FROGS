@@ -1,3 +1,0 @@
-sglang[serve]>=0.4.0
-huggingface_hub>=0.24.0
-pyyaml>=6.0.1
