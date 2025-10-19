@@ -8,6 +8,7 @@ tenacity
 tiktoken
 tqdm
 transformers
+torch
 umap-learn
 pydantic
 huggingface-hub>=0.23.0
