@@ -6,6 +6,11 @@
     --color-text: #111827;
     --color-muted: #6b7280;
     --color-white: #ffffff;
+    --surface-primary: var(--color-white);
+    --surface-muted: #f9fafb;
+    --border-color: var(--color-secondary);
+    --divider-color: rgba(17, 24, 39, 0.08);
+    --control-surface: var(--color-white);
   
     --radius-lg: 16px;
     --radius-sm: 8px;
@@ -23,5 +28,10 @@
     --color-text: #e5e7eb;            /* gray-200 */
     --color-muted: #9ca3af;           /* gray-400 */
     --color-white: #0b1220;           /* near-dark surface */
+    --surface-primary: var(--color-white);
+    --surface-muted: #111827;
+    --border-color: rgba(148, 163, 184, 0.24);
+    --divider-color: rgba(148, 163, 184, 0.32);
+    --control-surface: #111a2d;
   }
   

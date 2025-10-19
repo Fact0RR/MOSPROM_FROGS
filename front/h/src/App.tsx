@@ -3,6 +3,7 @@ import AuthLayout from "./components/AuthLayout";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
+import SupportHistory from "./pages/SupportHistory";
 
 export default function App() {
   return (
@@ -12,7 +13,9 @@ export default function App() {
           <Route path="/" element={<Navigate to="/auth/login" replace />} />
 
           
-          <Route path="/chat" element={<Chat />} />
+          <Route path="/chat/:id?" element={<Chat />} />
+          <Route path="/support_history" element={<SupportHistory />} />
+          <Route path="/support_history/:id" element={<SupportHistory />} />
 
          
           <Route path="/auth" element={<AuthLayout />}>

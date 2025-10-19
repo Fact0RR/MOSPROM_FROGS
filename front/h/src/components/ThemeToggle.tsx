@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "../styles/themetoggle.css";
 
 function getCurrentTheme(): "light" | "dark" {
   const attr = document.documentElement.getAttribute("data-theme");
@@ -11,13 +12,16 @@ export default function ThemeToggle() {
   useEffect(() => {
     const current = getCurrentTheme();
     if (current !== theme) setTheme(current);
-    // keep in sync if other parts change it
+
     const observer = new MutationObserver(() => {
-      const t = getCurrentTheme();
-      setTheme(t);
+      setTheme(getCurrentTheme());
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = () => {
@@ -27,11 +31,23 @@ export default function ThemeToggle() {
     setTheme(next);
   };
 
+  const isOn = theme === "dark";
+
   return (
-    <button className="secondary" onClick={toggle} title="Переключить тему">
-      {theme === "dark" ? "🌙" : "☀️"}
-    </button>
+    <label
+      className={`theme-switch ${isOn ? "is-on" : ""}`}
+      title="Переключить тему"
+    >
+      <input
+        type="checkbox"
+        role="switch"
+        aria-label="Переключить тему"
+        checked={isOn}
+        onChange={toggle}
+      />
+      <span className="track">
+        <span className="thumb" />
+      </span>
+    </label>
   );
 }
-
-
