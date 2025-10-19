@@ -13,7 +13,7 @@ HF_API_TOKEN: str = os.getenv("HF_API_TOKEN", "")
 HF_API_BASE_URL: Optional[str] = os.getenv("HF_API_BASE_URL") or None
 
 # Use a lightweight Qwen3 "thinking" model by default for proof-of-concept reasoning flows.
-HF_CHAT_MODEL: str = os.getenv("HF_CHAT_MODEL", "Qwen/Qwen3-1.5B-Reasoning")
+HF_CHAT_MODEL: str = os.getenv("HF_CHAT_MODEL", "Qwen/Qwen3-8B:nscale")
 HF_CHAT_TEMPERATURE: float = float(os.getenv("HF_CHAT_TEMPERATURE", "0.7"))
 
 _raw_max_tokens = os.getenv("HF_CHAT_MAX_OUTPUT_TOKENS", "").strip()
