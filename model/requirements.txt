@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 Flask==2.3.3
 requests==2.32.3
 faiss-cpu
@@ -8,7 +9,7 @@ tenacity
 tiktoken
 tqdm
 transformers
-torch
+torch==2.3.1+cpu
 umap-learn
 pydantic
 huggingface-hub>=0.23.0
