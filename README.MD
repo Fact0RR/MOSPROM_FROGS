@@ -98,4 +98,4 @@ docker-compose up
 
 ## <a name="6">Ссылки </a>
 
-- [ссылка на скринкаст](https://drive.google.com/drive/folders/1AV1OihR0tMgg06eclJ7MylKVASHN3H-E)&nbsp;
+- [ссылка на скринкаст](https://drive.google.com/file/d/1PVwChQFNd4LdB8KWFCtR3iyuy-i0CDbM/view?usp=sharing)&nbsp;
