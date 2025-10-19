@@ -1,14 +1,29 @@
-.login-wrapper {
+/* Контейнер страницы регистрации */
+.register-wrapper {
   min-height: 100vh;
   display: flex;
   background: #ffffff;
   color: #1b2a4b;
   font-family: "Inter", "Segoe UI", sans-serif;
-  position: relative;
+  position: relative; /* для позиционирования логотипа */
   overflow: hidden;
 }
 
-.login-decor {
+/* 🔹 ЛОГОТИП СВЕРХУ СЛЕВА (фиксирован внутри страницы) */
+.register-logo-container {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+}
+.register-logo-top {
+  width: 55px;
+  height: 55px;
+  display: block;
+}
+
+/* Левая синяя панель */
+.register-decor {
   flex: 0 0 32%;
   min-width: 280px;
   max-width: 420px;
@@ -22,19 +37,25 @@
   background: linear-gradient(180deg, #025ea1 0%, #02447f 100%);
 }
 
-.login-brand {
+/* Бренд-блок внутри синей панели.
+   Смещаем вправо, чтобы не задевать логотип. */
+.register-brand {
   position: absolute;
   top: 40px;
-  left: 36px;
+  left: 96px; /* было ~36px — увеличили, чтобы логотип слева не перекрывал текст */
   display: flex;
   gap: 16px;
   align-items: center;
   z-index: 1;
 }
 
-.login-logo { flex-shrink: 0; }
+/* Если решишь вернуть svg-логотип внутрь .register-brand */
+.register-logo {
+  flex-shrink: 0;
+}
 
-.login-brand__text {
+/* Текст бренда */
+.register-brand__text {
   display: flex;
   flex-direction: column;
   line-height: 1.2;
@@ -42,10 +63,10 @@
   letter-spacing: 0.06em;
   font-weight: 600;
 }
-
-.login-brand__title { font-size: 18px; }
-
-.login-brand__subtitle {
+.register-brand__title {
+  font-size: 18px;
+}
+.register-brand__subtitle {
   margin-top: 6px;
   font-size: 12px;
   font-weight: 400;
@@ -55,7 +76,7 @@
 }
 
 /* Правая часть */
-.login-content {
+.register-content {
   flex: 1;
   padding: 40px 24px;
   display: flex;
@@ -64,8 +85,7 @@
   position: relative;
   background: #ffffff;
 }
-
-.login-content::after {
+.register-content::after {
   content: "";
   position: absolute;
   top: 36px;
@@ -77,7 +97,7 @@
 }
 
 /* Форма */
-.login-form {
+.register-form {
   width: 100%;
   max-width: 320px;
   display: flex;
@@ -86,7 +106,7 @@
   position: relative;
 }
 
-.login-heading {
+.register-heading {
   font-size: 26px;
   font-weight: 600;
   text-align: center;
@@ -94,7 +114,7 @@
   margin-bottom: 6px;
 }
 
-.login-error {
+.register-error {
   background: rgba(235, 59, 90, 0.1);
   color: #d63031;
   border: 1px solid rgba(214, 48, 49, 0.25);
@@ -103,9 +123,10 @@
   font-size: 14px;
 }
 
-.login-field { display: block; }
+/* Поля */
+.register-field { display: block; }
 
-.login-field input {
+.register-field input {
   width: 100%;
   height: 52px;
   border-radius: 12px;
@@ -116,26 +137,26 @@
   color: #1b2a4b;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.login-field input::placeholder { color: rgba(27, 42, 75, 0.5); }
-
-.login-field input:focus {
+.register-field input::placeholder { color: rgba(27, 42, 75, 0.5); }
+.register-field input:focus {
   outline: none;
   border-color: rgba(64, 119, 255, 0.45);
   box-shadow: 0 0 0 3px rgba(64, 119, 255, 0.18);
   background: #ffffff;
 }
 
-.login-forgot {
-  margin-top: -6px;
-  margin-bottom: 4px;
-  text-align: right;
-  font-size: 13px;
-  color: #6d8cff;
-  cursor: default;
+/* Чекбокс */
+.register-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: #374151;
+  margin: 6px 0 6px;
 }
 
-.login-form button {
+/* Кнопка */
+.register-form button {
   width: 100%;
   height: 54px;
   border-radius: 14px;
@@ -148,17 +169,16 @@
   transition: background 0.2s ease, transform 0.1s ease;
   box-shadow: 0 14px 30px rgba(77, 123, 255, 0.35);
 }
-
-.login-form button:hover:enabled { background: #3f6bff; }
-.login-form button:active:enabled { transform: translateY(1px); }
-.login-form button:disabled {
+.register-form button:hover:enabled { background: #3f6bff; }
+.register-form button:active:enabled { transform: translateY(1px); }
+.register-form button:disabled {
   cursor: not-allowed;
   background: rgba(77, 123, 255, 0.45);
   box-shadow: none;
 }
 
 /* Вкладки под кнопкой */
-.login-tabs {
+.register-tabs {
   display: flex;
   justify-content: center;
   gap: 24px;
@@ -166,7 +186,6 @@
   border-top: 1px solid #e6e9f0;
   padding-top: 12px;
 }
-
 .tab-link {
   font-size: 15px;
   color: #4d7bff;
@@ -174,13 +193,8 @@
   position: relative;
   padding-bottom: 4px;
 }
-
 .tab-link:hover { color: #3f6bff; }
-
-.tab-link.active {
-  font-weight: 600;
-}
-
+.tab-link.active { font-weight: 600; }
 .tab-link.active::after {
   content: "";
   position: absolute;
@@ -190,7 +204,7 @@
   border-radius: 2px;
 }
 
-/* Скрытое для скринридеров */
+/* Для скринридеров */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -205,9 +219,9 @@
 
 /* Адаптив */
 @media (max-width: 920px) {
-  .login-wrapper { flex-direction: column; }
+  .register-wrapper { flex-direction: column; }
 
-  .login-decor {
+  .register-decor {
     width: 100%;
     max-width: none;
     min-height: 200px;
@@ -215,9 +229,14 @@
     justify-content: center;
   }
 
-  .login-content { padding: 56px 24px 40px; }
+  .register-brand {
+    left: 88px; /* чуть ближе на узких экранах */
+    top: 34px;
+  }
 
-  .login-content::after {
+  .register-content { padding: 56px 24px 40px; }
+
+  .register-content::after {
     right: -60px;
     top: 10px;
     width: 240px;
@@ -226,7 +245,17 @@
 }
 
 @media (max-width: 520px) {
-  .login-content::after { display: none; }
-  .login-form { max-width: 100%; }
-  .login-heading { font-size: 22px; }
+  .register-logo-container {
+    top: 16px;
+    left: 16px;
+  }
+
+  .register-content::after { display: none; }
+  .register-form { max-width: 100%; }
+  .register-heading { font-size: 22px; }
+
+  .register-brand {
+    left: 78px; /* ещё немного ближе на мобильных */
+    top: 30px;
+  }
 }
