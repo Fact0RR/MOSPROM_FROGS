@@ -25,9 +25,10 @@ type messageIn struct {
 }
 
 type messageToModel struct {
-	ChatID      int       `json:"chat_id"`
-	UserUUID    uuid.UUID `json:"user_uuid"`
-	UserRequest string    `json:"user_request"`
+	ChatID      int            `json:"chat_id"`
+	UserUUID    uuid.UUID      `json:"user_uuid"`
+	UserRequest string         `json:"user_request"`
+	Messages    []messageModel `json:"messages"`
 }
 
 func NewMessage(client *client.Client, db *sql.DB, logger *logrus.Logger) *Message {
@@ -67,10 +68,33 @@ func (mh *Message) Handler(c *fiber.Ctx) error {
 		})
 	}
 
+	messages, err := database.GetHistory(mh.db, chatID, mh.logger)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Error in database",
+			"details": err.Error(),
+		})
+	}
+
+	var messageHistory messageOutToModel
+	for _, message := range messages {
+		messageHistory.Messages = append(messageHistory.Messages, 
+			messageModel{
+				Role: "user",
+				Content: message.Question,
+			},
+			messageModel{
+				Role: "assistant",
+				Content: message.Answer,
+			},
+		)
+	}
+
 	dataToModel, err := json.Marshal(messageToModel{
 		ChatID:      chatID,
 		UserUUID:    uuid,
 		UserRequest: messageIn.Question,
+		Messages: messageHistory.Messages,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
