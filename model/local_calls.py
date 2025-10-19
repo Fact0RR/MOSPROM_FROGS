@@ -25,6 +25,7 @@ from .config import (
     HF_CHAT_TEMPERATURE,
     HF_RERANK_MODEL,
     HF_TIMEOUT,
+    HF_MAX_RETRIES,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,6 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
     """Call the Hugging Face chat completion endpoint and return the reply text."""
     if not HF_API_TOKEN:
         raise RuntimeError("HF_API_TOKEN is not configured.")
-    print("LLm call:")
     normalized_messages = _ensure_messages(messages)
     url = f"{_base_api_url()}/v1/chat/completions"
     headers = {
@@ -69,21 +69,52 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
         payload["max_tokens"] = HF_CHAT_MAX_OUTPUT_TOKENS
 
     logger.debug("Posting chat completion request to %s", url)
-    print(headers)
-    print(payload)
-    response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
+    attempts = max(1, HF_MAX_RETRIES)
+    response = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=HF_TIMEOUT,
+            )
+            response.raise_for_status()
+            break
+        except requests.Timeout as exc:
+            logger.warning(
+                "LLM_call timed out after %.1fs on attempt %d/%d",
+                HF_TIMEOUT,
+                attempt,
+                attempts,
+            )
+            if attempt == attempts:
+                raise RuntimeError(
+                    f"LLM_call timed out after {attempts} attempts (timeout={HF_TIMEOUT}s)"
+                ) from exc
+        except requests.HTTPError:
+            body_preview = response.text[:1000] if response is not None and response.text else "<empty body>"
+            status = response.status_code if response is not None else "unknown"
+            logger.error(
+                "LLM_call HTTP %s at %s; body preview=%s",
+                status,
+                url,
+                body_preview,
+            )
+            raise
+        except requests.RequestException as exc:
+            logger.exception("LLM_call request failed on attempt %d/%d", attempt, attempts)
+            raise
+
+    if response is None:
+        raise RuntimeError("LLM_call failed: no response received after retries.")
+
     try:
-        response.raise_for_status()
-    except requests.HTTPError as exc:
+        data = response.json()
+    except ValueError as exc:
         body_preview = response.text[:1000] if response.text else "<empty body>"
-        logger.error(
-            "LLM_call HTTP %s at %s; body preview=%s",
-            response.status_code,
-            url,
-            body_preview,
-        )
-        raise
-    data = response.json()
+        logger.exception("Failed to decode chat response: %s", body_preview)
+        raise RuntimeError("Invalid response from chat completion endpoint") from exc
 
     try:
         assistant_message = data["choices"][0]["message"].get("content") or ""

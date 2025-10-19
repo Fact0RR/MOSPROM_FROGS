@@ -38,27 +38,43 @@ _RAPTOR_INDEX_PATH: Optional[Path] = None
 _MAX_VARIANTS = 3  # original + two rewrites
 
 
-def _load_raptor_pipeline(top_k: int) -> RaptorRagPipeline:
+def _load_raptor_pipeline(top_k: int) -> Optional[RaptorRagPipeline]:
     """Load (or cache) the Raptor pipeline from the persisted knowledge base."""
     global _RAPTOR_PIPELINE, _RAPTOR_INDEX_PATH
     base_dir = Path(__file__).resolve().parent
     index_path = (base_dir / "raptorkb.pickle").resolve()
 
     if not index_path.exists():
-        raise FileNotFoundError(
-            f"Raptor knowledge base missing at {index_path}. "
-            "Ensure build_kb has generated the pickle before using RAG tools."
+        logger.warning(
+            "Raptor knowledge base missing at %s; skipping retrieval and returning no evidence.",
+            index_path,
         )
+        return None
 
     if (_RAPTOR_PIPELINE is None) or (_RAPTOR_INDEX_PATH != index_path):
-        _RAPTOR_PIPELINE = RaptorRagPipeline(index_path=index_path, retriever_top_k=top_k)
-        _RAPTOR_INDEX_PATH = index_path
+        try:
+            _RAPTOR_PIPELINE = RaptorRagPipeline(index_path=index_path, retriever_top_k=top_k)
+            _RAPTOR_INDEX_PATH = index_path
+        except Exception as exc:
+            logger.warning("Raptor pipeline initialization failed: %s", exc)
+            _RAPTOR_PIPELINE = None
+            _RAPTOR_INDEX_PATH = None
+            return None
     return _RAPTOR_PIPELINE
 
 
-def _retrieve_with_raptor(pipeline: RaptorRagPipeline, query: str, top_k: int) -> List[Dict[str, Any]]:
+def _retrieve_with_raptor(
+    pipeline: Optional[RaptorRagPipeline], query: str, top_k: int
+) -> List[Dict[str, Any]]:
     """Run retrieval with the active pipeline and return chunk metadata without scoring."""
-    _, layer_info = pipeline.retrieve(query, top_k=top_k, collapse_tree=True)
+    if pipeline is None:
+        return []
+
+    try:
+        _, layer_info = pipeline.retrieve(query, top_k=top_k, collapse_tree=True)
+    except Exception as exc:
+        logger.warning("Raptor pipeline retrieval failed for query '%s': %s", query, exc)
+        return []
 
     results: List[Dict[str, Any]] = []
     for meta in layer_info[:top_k]:
