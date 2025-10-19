@@ -17,8 +17,8 @@ from .config import (
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_MAX_RETRIES = 3
-EMBEDDING_RETRY_DELAY_SECONDS = 0.5
+EMBEDDING_MAX_RETRIES = 6
+EMBEDDING_RETRY_DELAY_SECONDS = 5
 
 
 def _ensure_messages(messages: Sequence[Mapping[str, str]]) -> List[Mapping[str, str]]:
