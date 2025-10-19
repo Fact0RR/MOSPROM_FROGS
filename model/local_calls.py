@@ -1,11 +1,21 @@
 import logging
 from threading import Lock
-from typing import List, Mapping, Sequence
+from typing import List, Mapping, Optional, Sequence
 
 import requests
-import torch
-import torch.nn.functional as F
-from transformers import AutoModel, AutoTokenizer
+
+try:
+    import torch
+    import torch.nn.functional as F
+    from transformers import AutoModel, AutoTokenizer
+except ImportError as exc:  # pragma: no cover - optional dependency
+    torch = None  # type: ignore[assignment]
+    F = None  # type: ignore[assignment]
+    AutoModel = None  # type: ignore[assignment]
+    AutoTokenizer = None  # type: ignore[assignment]
+    _embedding_import_error: Optional[Exception] = exc
+else:
+    _embedding_import_error = None
 
 from .config import (
     HF_API_BASE_URL,
@@ -75,7 +85,7 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
 
 
 def embedding_call(texts: List[str]) -> List[List[float]]:
-    """Return embeddings for each text using the configured Hugging Face model."""
+    """Return embeddings for each text using the local Qwen embedding model."""
     print("Я эмбеддер тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
     print(texts)
     if not texts:
@@ -95,6 +105,18 @@ def embedding_call(texts: List[str]) -> List[List[float]]:
 def _load_embedding_components():
     """Lazily load the local embedding model and tokenizer once."""
     global _embedding_model, _embedding_tokenizer
+    if (
+        _embedding_import_error is not None
+        or torch is None
+        or AutoTokenizer is None
+        or AutoModel is None
+        or F is None
+    ):
+        raise RuntimeError(
+            "Local embedding model requires the `torch` and `transformers` packages. "
+            "Install them to enable embeddings."
+        ) from _embedding_import_error
+
     if _embedding_model is not None and _embedding_tokenizer is not None:
         return _embedding_tokenizer, _embedding_model
 

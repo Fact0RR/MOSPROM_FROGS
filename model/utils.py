@@ -25,15 +25,17 @@ from .raptor.EmbeddingModels import BaseEmbeddingModel
 logger = logging.getLogger(__name__)
 
 
-class _HFEmbeddingModel(BaseEmbeddingModel):
-    """Adapter that routes embedding requests to the Hugging Face embedding endpoint."""
+class _LocalEmbeddingModel(BaseEmbeddingModel):
+    """Adapter that routes embedding requests to the local embedding implementation."""
 
     def __init__(self) -> None:
         self._call_count = 0
 
     def create_embedding(self, text: str):
         if embedding_call is None:
-            raise RuntimeError("Hugging Face embedding endpoint is not configured.")
+            raise RuntimeError(
+                "Local embedding model is not available. Install `torch` and `transformers`."
+            )
         self._call_count += 1
         request_id = self._call_count
         logger.debug(
@@ -55,7 +57,9 @@ class _HFEmbeddingModel(BaseEmbeddingModel):
 def build_raptor_tree(chunks: Sequence[str], output_path: str | Path) -> Path:
     """Build a Raptor tree from the provided text chunks and persist it to disk."""
     if embedding_call is None:
-        raise RuntimeError("Hugging Face embedding endpoint is not configured.")
+        raise RuntimeError(
+            "Local embedding model is not available. Install `torch` and `transformers`."
+        )
 
     path = Path(output_path).expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,7 +72,7 @@ def build_raptor_tree(chunks: Sequence[str], output_path: str | Path) -> Path:
         path,
     )
     config = RetrievalAugmentationConfig(
-        embedding_model=_HFEmbeddingModel(),
+        embedding_model=_LocalEmbeddingModel(),
         summarization_model=GPT3TurboSummarizationModel(),
         qa_model=GPT3TurboQAModel(),
     )
