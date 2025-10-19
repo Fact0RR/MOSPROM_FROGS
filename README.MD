@@ -35,7 +35,7 @@ git clone https://github.com/Fact0RR/MOSPROM_FROGS.git
 2. Добавить .env c чувствительной информацией в корень проекта:
 
 ```.env
-HF_API_TOKEN=hf_rt****Замените_на_ваш_токен**********
+HF_API_TOKEN=****Замените_на_ваш_Hugging_face_токен**********
 HF_CHAT_MODEL=Qwen/Qwen3-1.5B-Reasoning
 HF_CHAT_TEMPERATURE=0.7
 # Leave HF_CHAT_MAX_OUTPUT_TOKENS empty to allow full responses by default.
