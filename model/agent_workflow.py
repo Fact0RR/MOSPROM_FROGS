@@ -85,6 +85,7 @@ def _react_loop(state: State) -> None:
     for _ in range(5):
         # TODO: Fix prompt
         planner_prompt = get_planner_prompt(state)
+        print(planner_prompt)
         plan_raw = LLM_call(planner_prompt)
         plan_data = json.loads(plan_raw)
         instrument_name = plan_data["instrument_name"]
@@ -207,3 +208,4 @@ def _react_loop(state: State) -> None:
     state.finalize_required = True
     logger.info("Generated fallback draft answer; length=%d", len(fallback_output))
     return state
+

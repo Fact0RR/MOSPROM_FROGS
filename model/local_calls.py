@@ -52,7 +52,7 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
     """Call the Hugging Face chat completion endpoint and return the reply text."""
     if not HF_API_TOKEN:
         raise RuntimeError("HF_API_TOKEN is not configured.")
-
+    print("LLm call:")
     normalized_messages = _ensure_messages(messages)
     url = f"{_base_api_url()}/v1/chat/completions"
     headers = {
@@ -69,8 +69,20 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
         payload["max_tokens"] = HF_CHAT_MAX_OUTPUT_TOKENS
 
     logger.debug("Posting chat completion request to %s", url)
+    print(headers)
+    print(payload)
     response = requests.post(url, headers=headers, json=payload, timeout=HF_TIMEOUT)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        body_preview = response.text[:1000] if response.text else "<empty body>"
+        logger.error(
+            "LLM_call HTTP %s at %s; body preview=%s",
+            response.status_code,
+            url,
+            body_preview,
+        )
+        raise
     data = response.json()
 
     try:
