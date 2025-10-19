@@ -50,7 +50,6 @@ def _base_api_url() -> str:
 
 def LLM_call(messages: List[Mapping[str, str]]) -> str:
     """Call the Hugging Face chat completion endpoint and return the reply text."""
-    print("Я LLM тут\nЯ LLM тут\nЯ LLM тут\nЯ LLM тут\n")
     if not HF_API_TOKEN:
         raise RuntimeError("HF_API_TOKEN is not configured.")
 
@@ -80,14 +79,11 @@ def LLM_call(messages: List[Mapping[str, str]]) -> str:
         raise RuntimeError(f"Invalid response from chat completion endpoint: {data!r}") from exc
 
     logger.info("Received assistant message from Hugging Face provider.")
-    print("Я LLM отработал")
     return assistant_message
 
 
 def embedding_call(texts: List[str]) -> List[List[float]]:
     """Return embeddings for each text using the local Qwen embedding model."""
-    print("Я эмбеддер тут\nЯ тут\nЯ тут\nЯ тут\nЯ тут\n")
-    print(texts)
     if not texts:
         return []
 
@@ -160,7 +156,6 @@ def _local_embedding_request(texts: List[str]) -> List[List[float]]:
     pooled = summed / counts
     normalized = F.normalize(pooled, p=2, dim=1)
     embeddings = normalized.cpu().tolist()
-    print("Я эмбеддер отработал")
     return embeddings
 
 

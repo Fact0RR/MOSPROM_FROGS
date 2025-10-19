@@ -26,7 +26,7 @@ services:
     volumes:
       - ./knowledge.txt:/app/knowledge.txt:ro
     command: >
-      /bin/sh -c "python -m model.build_kb --source /app/knowledge.txt --output /app/model/raptorkb.pickle && python -m model.main"
+      /bin/sh -c "python -m model.main & python -m model.build_kb --source /app/knowledge.txt --output /app/model/raptorkb.pickle; wait"
 
   # recognizer-service:
   #   build:
