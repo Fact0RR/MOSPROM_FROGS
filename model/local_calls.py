@@ -135,6 +135,7 @@ def _load_embedding_components():
             model.eval()
             _embedding_model = model
             _embedding_tokenizer = tokenizer
+    print("embedding loaded")
     return _embedding_tokenizer, _embedding_model
 
 

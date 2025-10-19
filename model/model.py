@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 def _execute_workflow(payload: Dict[str, Any]):
     chat_id = payload["chat_id"]
     messages: List[Mapping[str, Any]] = payload["messages"]
+    messages = [*messages, {"role": "user", "content": payload["user_request"]}]
     logger.debug("Executing workflow for chat_id=%s", chat_id)
     workflow_result = react_workflow(chat_id, messages)
     message = workflow_result.get("message", "")
