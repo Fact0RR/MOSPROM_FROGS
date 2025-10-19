@@ -27,7 +27,7 @@ def mock():
         
         # Имитация распознавания текста с помощью Whisper
         # В реальном приложении здесь был бы код:
-        result = model.transcribe("http://app:8080" + voice_url)
+        result = model.transcribe("http://minio:9000" + voice_url)
         question_text = result["text"]
         
         # Для демонстрации используем заглушку
